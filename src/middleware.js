@@ -1,9 +1,9 @@
-import React from 'react'
+import { NextResponse } from "next/server";
 
-export default function middleware() {
-  return (
-    <div>
-      
-    </div>
-  )
+export function middleware(request) {
+  return NextResponse.next();
 }
+
+export const config = {
+  matcher: ["/employer/:path*", "/candidate/:path*"],
+};

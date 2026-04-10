@@ -1,9 +1,3 @@
-import React from 'react'
-
-const layout = () => {
-  return (
-    <div>Employer Layout</div>
-  )
+export default function EmployerLayout({ children }) {
+  return <>{children}</>;
 }
-
-export default layout

@@ -1,9 +1,3 @@
-import React from 'react'
-
-const layout = () => {
-  return (
-    <div>Candidate Layout</div>
-  )
+export default function CandidateLayout({ children }) {
+  return <>{children}</>;
 }
-
-export default layout
