@@ -38,7 +38,7 @@ export default function CandidateLoginPage() {
         {/* Header */}
         <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
           <Image
-            src="/akij-logo.png"
+            src="/header-logo.png"
             alt="Akij Resource"
             width={120}
             height={32}

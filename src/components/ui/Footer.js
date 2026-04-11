@@ -10,22 +10,21 @@ export default function Footer() {
       <footer className="bg-[#1a1a2e] text-white mt-auto">
         <div className="max-w-7xl mx-auto px-6 py-5 flex flex-col md:flex-row items-center justify-between gap-4">
           {/* Left: Logo */}
-          <div className="flex flex-col gap-1">
+          <div className="flex gap-1 items-center justify-center">
             <span className="text-xs text-gray-400 uppercase tracking-widest">
               Powered by
             </span>
+
             <Image
               src="/footer-logo.png"
-              alt="Footer Logo"
-              width={130}
+              alt="Footer Resource"
+              width={120}
               height={36}
-              loading="eager"
-              className="object-contain brightness-0 invert"
             />
           </div>
 
           {/* Right: Helpline */}
-          <div className="flex flex-col gap-2 text-sm text-gray-300">
+          <div className="flex items-center justify-between gap-2 text-sm text-gray-300">
             <span className="font-semibold text-white tracking-wide">
               Helpline
             </span>
