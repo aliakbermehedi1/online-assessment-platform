@@ -1,7 +1,18 @@
 import { NextResponse } from "next/server";
-import { verifyToken } from "@/lib/auth";
+import { jwtVerify } from "jose";
 
-export function middleware(request) {
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
+
+async function verifyToken(token) {
+  try {
+    const { payload } = await jwtVerify(token, JWT_SECRET);
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+export async function middleware(request) {
   const token = request.cookies.get("token")?.value;
   const path = request.nextUrl.pathname;
 
@@ -16,7 +27,7 @@ export function middleware(request) {
       return NextResponse.redirect(new URL(loginPath, request.url));
     }
 
-    const decoded = verifyToken(token);
+    const decoded = await verifyToken(token);
 
     if (!decoded) {
       const loginPath = isEmployerPath ? "/employer/login" : "/candidate/login";
@@ -34,9 +45,8 @@ export function middleware(request) {
     }
   }
 
-  // Already logged in, redirect away from login pages
   if (token) {
-    const decoded = verifyToken(token);
+    const decoded = await verifyToken(token);
     if (decoded) {
       if (path === "/employer/login" && decoded.role === "employer") {
         return NextResponse.redirect(
