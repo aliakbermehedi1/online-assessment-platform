@@ -45,6 +45,7 @@ export async function middleware(request) {
     }
   }
 
+  // Already logged in redirect from login pages
   if (token) {
     const decoded = await verifyToken(token);
     if (decoded) {
@@ -58,6 +59,18 @@ export async function middleware(request) {
           new URL("/candidate/dashboard", request.url),
         );
       }
+      if (path === "/login") {
+        if (decoded.role === "employer") {
+          return NextResponse.redirect(
+            new URL("/employer/dashboard", request.url),
+          );
+        }
+        if (decoded.role === "candidate") {
+          return NextResponse.redirect(
+            new URL("/candidate/dashboard", request.url),
+          );
+        }
+      }
     }
   }
 
@@ -65,5 +78,5 @@ export async function middleware(request) {
 }
 
 export const config = {
-  matcher: ["/employer/:path*", "/candidate/:path*"],
+  matcher: ["/employer/:path*", "/candidate/:path*", "/login"],
 };
