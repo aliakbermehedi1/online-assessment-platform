@@ -1,144 +1,191 @@
 # Online Assessment Platform
-A full-stack Online Assessment Platform developed as part of the iBOS Limited Frontend Engineer evaluation task. The platform supports two distinct user panels  Employer and Candidate  with complete exam creation, management, and participation workflows.
+A full-stack Online Assessment Platform built as part of the iBOS Limited Frontend Engineer evaluation task. The platform supports two distinct panels **Employer** and **Candidate** with complete exam creation, management, and participation workflows backed by a real PostgreSQL database and REST API.
 
----
 
 ## Live Links
-- Live Demo: [online-assessment-ibos.vercel.app](https://online-assessment-ibos.vercel.app/)
-- GitHub Repository: [github.com/aliakbermehedi1/online-assessment-platform](https://github.com/aliakbermehedi1/online-assessment-platform)
-- Video Recording: [your-video-link-here]
+Live Demo: https://online-assessment-ibos.vercel.app/
+GitHub: https://github.com/aliakbermehedi1/online-assessment-platform
+Video Recording: 
 
----
 
 ## Tech Stack
-**Framework:** Next.js 16 with App Router
-**State Management:** Redux Toolkit
-**Forms:** Formik with Yup validation
-**Styling:** Tailwind CSS
-**API Handling:** Axios with interceptors
-**Database:** Neon PostgreSQL (Serverless)
-**Authentication:** JWT with bcryptjs password hashing
-**Middleware:** Edge-compatible route protection using jose
-**Deployment:** Vercel
+Framework: Next.js 16 
+State Management: Redux Toolkit
+Forms: Formik
+UI/Styling: Tailwind CSS
+Database: Neon PostgreSQL (Serverless, free tier)
+Deployment: Vercel
 
----
 
-## Features
+## Features Implemented
 ### Employer Panel
-Employers can log in securely and access a full exam management interface.
-
-The dashboard displays all created exams in a clean card layout, with search and pagination support. Each card shows the exam title, total candidates, question sets, and exam slots.
-
-Creating a new test follows a two-step process. In the first step, the employer fills in basic information including the title, candidate count, slots, question sets, question type, start and end time, and duration. In the second step, questions are added through a modal interface. Each question supports three types  Radio (MCQ), Checkbox (multiple correct), and Text (open answer). Questions can be added, edited, and deleted at any time.
+- Login: JWT authentication with bcrypt password verification
+- Dashboard: Paginated exam card list with live search
+- Create Test (2-step): Basic info form (title, candidates, slots, question sets, type, start/end time, duration) & Questions
+- Edit Test: Pre-filled form with existing data
+- Delete Test: Confirmation modal before deletion
+- Question Management: Add, edit, delete questions via modal, supports MCQ (Radio), Checkbox (multi-correct), and Text types
+- View Candidates: Table of all submissions with score, correct/wrong/skipped breakdown, timeout flag, and submission timestamp
 
 ### Candidate Panel
-Candidates log in through a separate login page and see all available exams on their dashboard. Each card shows the exam duration, number of questions, and negative marking value.
+- Login:  Separate auth flow, redirects to candidate dashboard on success
+- Dashboard: Shows available exams with duration, question count, negative marking, and submission status per exam
+- Exam Screen: One question at a time, countdown timer
+- Auto-submit on timeout: Timer fires submission automatically when countdown reaches zero
+- Manual submit: Candidate can submit after the last question
+- Tab switch detection: and event triggers a warning alert (Not Submitting, As a warning i show alert message)
+- Offline resilience: Answers saved to localStorage on every interaction, timer stored as absolute end timestamp so it survives refreshes, an event triggers re-submission attempt
+- Duplicate submission prevention: API checks existing submission on exam load and redirects if already submitted
 
-Starting an exam brings the candidate to a focused exam screen. A countdown timer runs at the top of the page. Questions appear one at a time. The candidate can answer and proceed, or skip a question. Answers are saved to localStorage on every interaction, so if the internet drops or the page reloads, no answers are lost.
 
-The exam auto-submits when the timer reaches zero. The candidate can also submit manually after the last question. Tab switching triggers a warning alert, and exiting fullscreen mode also produces a warning  both behaviors are tracked as part of behavioral monitoring.
 
-After submission, a completion screen confirms the exam has been received.
+## Architecture Decisions
+**Why two separate auth routes (`/api/auth/employer` and `/api/auth/candidate`)?**  
+Employers and candidates have different roles and different database tables. Keeping the routes separate avoids role-confusion bugs and makes the auth logic easier to reason about.
 
----
+**Why jose instead of jsonwebtoken in middleware?**  
+Next.js Edge Middleware runs in a restricted runtime that does not support Node.js built-ins. `jsonwebtoken` depends on the `crypto` module, which is not available at the edge. `jose` is a pure-JS alternative that works in both Edge and Node environments.
+
+**Why Redux Toolkit instead of Zustand?**  
+Redux Toolkit was listed as a preferred option in the task requirements. The project uses three slices `auth`, `exam`, and `question` each with focused reducers. The `useAuth` and `useExam` custom hooks wrap all dispatch and selector logic so components never import Redux directly.
+
+**Why localStorage for timer and answers?**  
+The exam must survive browser refreshes and network drops. localStorage gives immediate, synchronous reads on page load with no server round-trip. The timer is stored as an absolute Unix timestamp (not a countdown), so it continues correctly even if the tab is closed and reopened minutes later.
+
+
+## Project Structure
+src/
+├── app/
+│   ├── (employer)/employer/
+│   │   ├── login/              Employer login page
+│   │   ├── dashboard/          Exam list with search and pagination
+│   │   └── tests/
+│   │       ├── create/         Two-step exam creation flow
+│   │       └── [id]/
+│   │           ├── page.js     Candidate submissions table + detail view
+│   │           └── edit/       Pre-filled exam edit form
+│   ├── (candidate)/candidate/
+│   │   ├── login/              Candidate login page
+│   │   ├── dashboard/          Available exams list
+│   │   └── exam/
+│   │       ├── [id]/           Active exam screen with timer
+│   │       └── completed/      Post-submission confirmation
+│   └── api/
+│       ├── auth/employer/      POST login, DELETE logout
+│       ├── auth/candidate/     POST login, DELETE logout
+│       ├── auth/me/            GET current user from token
+│       ├── exams/              GET list, POST create, DELETE by id
+│       ├── exams/[id]/         GET single, PUT update
+│       ├── questions/          GET, POST, PUT, DELETE
+│       ├── submissions/        POST submit exam
+│       ├── submissions/check/  GET has this candidate already submitted?
+│       ├── submissions/results/ GET all submissions for an exam (employer only)
+│       ├── init/               GET create all tables (run once)
+│       └── seed/               GET insert test users
+├── components/
+│   ├── ui/                     Button, Input, Modal, ConfirmModal, Navbar, Footer, DropdownField
+│   ├── employer/               ExamCard, CreateTestForm, EditTestForm, QuestionModal, QuestionSetsPage
+│   └── candidate/              ExamCard
+├── hooks/
+│   ├── useAuth.js              Login, logout, Redux auth state
+│   └── useExam.js              Fetch, create, edit, delete exams and questions; submit exam
+├── store/
+│   └── slices/
+│       ├── authSlice.js
+│       ├── examSlice.js
+│       └── questionSlice.js
+├── lib/
+│   ├── auth.js                 hashPassword, comparePassword, generateToken, verifyToken
+│   ├── axios.js                Axios instance with 401 interceptor
+│   └── db.js                   Neon SQL client + initDB()
+└── middleware.js                Edge-compatible route protection
+
 
 ## Setup Instructions
 ### Prerequisites
 - Node.js 18 or higher
-- A Neon database account (free tier available at neon.tech)
+- A [Neon](https://neon.tech) database account (free tier is sufficient)
 
-### Installation
-Clone the repository and install dependencies:
+### 1. Clone and Install
 git clone https://github.com/aliakbermehedi1/online-assessment-platform.git
 cd online-assessment-platform
 npm install
 
-Create a [.env.local] file in the project root with the following variables:
-DATABASE_URL=postgresql://neondb_owner:npg_JStK2OY3uNoH@ep-fragrant-bird-a1yfornm.ap-southeast-1.aws.neon.tech/neondb?sslmode=require
+
+### 2. Environment Variables
+Create a `.env.local` file in the project root:
+
+DATABASE_URL= (add yours or use my db) ---->  postgresql://neondb_owner:npg_JStK2OY3uNoH@ep-fragrant-bird-a1yfornm.ap-southeast-1.aws.neon.tech/neondb?sslmode=require
 JWT_SECRET=akij-assessment-super-secret-key-2026
 JWT_EXPIRES_IN=7d
 
-
-
-Initialize the database by visiting this URL once after starting the dev server:
+### 3. Initialize the Database (If You use your Database)
 http://localhost:3000/api/init
 
 
-Seed the test users:
+### 4. Seed Test Users (If You use your Database)
 http://localhost:3000/api/seed
 
-
-
-
-Start the development server:
+### 5. Run
 npm run dev
 
-The app will be available at http://localhost:3000.
+The app is available at `http://localhost:3000`.
 
-### Test Credentials
-Employer  employer@ibos.com  password: employer123
-Candidate  candidate@ibos.com  password: candidate123
 
----
-## Project Structure
-src/
-├── app/
-│   ├── (employer)/employer/        Employer pages (login, dashboard, create test)
-│   ├── (candidate)/candidate/      Candidate pages (login, dashboard, exam, completed)
-│   └── api/                        Backend API routes (auth, exams, questions, submissions)
-├── components/
-│   ├── ui/                         Shared components (Button, Input, Modal, Navbar, Footer)
-│   ├── employer/                   Employer components
-│   └── candidate/                  Candidate components
-├── store/
-│   └── slices/                     Redux slices for auth, exam, and question state
-├── hooks/                          Custom hooks (useAuth, useExam, useTimer)
-├── lib/                            axios instance
-└── middleware.js                   
 
+## Test Credentials / Login Credentials
+Employer: 
+Email: employer@ibos.com  
+Password: employer123 
+
+
+Candidate: 
+Email: candidate@ibos.com 
+Password: candidate123 |
 
 
 
 ## Additional Questions
 
-# MCP Integration
-I have not worked with MCP professionally, but I understand its purpose and can describe how it would apply to this project.
+### MCP Integration
+I have not used MCP professionally, but I have a clear picture of how it would apply here.
 
-MCP, or Model Context Protocol, is an open standard developed by Anthropic that allows AI models like Claude to connect with external tools and data sources in a structured way. Rather than copying and pasting context manually into an AI chat, MCP enables direct, live connections between the AI and the systems it needs to reason about.
+MCP (Model Context Protocol) is an open standard by Anthropic that lets AI models like Claude connect directly to external tools and data sources databases, design files, browser sessions without the developer needing to copy-paste context manually.
 
-In the context of this project, three MCP integrations would be particularly valuable.
+Three integrations would be genuinely useful in this project:
 
-The Figma MCP would allow Claude to read the design frames directly from Figma without any manual screenshots or descriptions. Claude could inspect component layouts, extract spacing values, color tokens, and typography, and generate matching React components automatically. This would have saved several hours of UI implementation work during this project.
+**Figma MCP** Claude could read the design frames directly without screenshots, extract spacing, color tokens, and component structure, and generate matching React components. This would have saved several hours during the UI phase.
 
-The Supabase MCP would give Claude live access to the database schema and data. During development, Claude could help write and test SQL queries, identify missing indexes, or suggest schema improvements  all without the developer needing to copy schema definitions manually.
+**Supabase or Neon MCP** Claude would have live access to the database schema and could help write and test SQL queries, suggest missing indexes, or flag schema design issues all without me copying schema definitions by hand.
 
-The Chrome DevTools MCP would allow Claude to inspect the running application directly  reading network requests, performance timelines, and console errors  and provide contextual debugging suggestions without the developer needing to describe what they are seeing.
+**Chrome DevTools MCP** Claude could inspect the running application directly, read network requests and console errors, and provide debugging suggestions based on what is actually happening rather than what I describe.
 
+### AI Tools Used
+**Claude** was my primary tool throughout this project. Most useful for: architectural decisions early on, debugging the Edge Runtime incompatibility with `jsonwebtoken` in Next.js middleware, writing structured boilerplate quickly, and reviewing component logic for edge cases.
 
-# AI Tools for Development
-I used Claude throughout this project as the primary development assistant. Claude was particularly useful for architectural decisions at the start of the project, for debugging the Edge Runtime incompatibility with jsonwebtoken that was blocking the middleware from working correctly, and for writing structured boilerplate code quickly under time pressure.
+**GitHub Copilot** for inline autocompletion on repetitive patterns form fields, API route handlers
 
-I also use GitHub Copilot regularly for inline autocompletion during repetitive tasks such as writing form fields, API route handlers, and Redux slice reducers.
+**ChatGPT**  For quick syntax lookups.
 
-For quick reference and syntax lookups, ChatGPT is useful as a secondary tool.
+The most effective workflow: use Claude for planning and problem-solving, Copilot for implementation speed. AI tools reduce time spent on tasks with known solutions, freeing focus for decisions that require real engineering judgment.
 
-The most effective workflow I have found is to use Claude for planning and problem-solving, and Copilot for implementation speed. AI tools do not replace engineering judgment, but they significantly reduce the time spent on tasks that have clear, known solutions  freeing up focus for the parts of a project that require genuine design thinking.
 
 ### Offline Mode
-If a candidate loses internet connection during an exam, the platform handles it in the following way.
+Every answer selection is saved to `localStorage` immediately, mapping question IDs to selected values. If the page reloads, answers are read back and restored to state before the first render.
 
-Every answer selection is immediately saved to localStorage. The key stores a JSON object mapping question IDs to the selected answer values. If the page reloads for any reason, the answers can be read back from localStorage and restored to the UI state.
+The exam timer is stored as an absolute end timestamp (`Date.now() + duration`), not a countdown. On any page load, the remaining time is calculated from `endTime - Date.now()`. This means the timer is accurate even after a browser refresh, a tab close, or a short network drop.
 
-The exam timer is also persisted in localStorage as an absolute end timestamp rather than a countdown value. When the page loads, the remaining time is calculated from the difference between the saved end time and the current time. This means the timer continues accurately even if the browser is refreshed or the tab is closed and reopened.
+When the `online` event fires after connectivity is restored, the platform can automatically attempt to submit any locally-saved answers:
 
-When internet connectivity returns, the browser fires the online event. A listener can catch this event and automatically submit the saved answers to the server:
+```js
+window.addEventListener('online', () => {
+  const saved = localStorage.getItem(`exam_answers_${examId}`);
+  if (saved) submitExam(examId, JSON.parse(saved));
+});
+```
 
-For a production-grade implementation, I would extend this with IndexedDB for more reliable storage of larger datasets, Service Workers to cache the exam page and API responses so the exam remains usable with no connection at all, and the Background Sync API to queue the submission and fire it reliably the moment connectivity returns, even if the user has closed the tab by then.
-
----
-
-## Submission
-Submitted by Ali Akber Mehedi
-GitHub: https://github.com/aliakbermehedi1
-Email: aliakbermehedi@gmail.com
+## Submitted By
+**Ali Akber Mehedi**  
+GitHub: [github.com/aliakbermehedi1](https://github.com/aliakbermehedi1)  
+Email: aliakbermehedi@gmail.com  
 Phone: 01854430058
