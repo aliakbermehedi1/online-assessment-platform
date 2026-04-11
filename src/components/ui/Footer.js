@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 import Image from "next/image";
 
 export default function Footer() {
@@ -17,9 +18,10 @@ export default function Footer() {
 
             <Image
               src="/footer-logo.png"
-              alt="Footer Resource"
+              alt="Akij Resource"
               width={120}
-              height={36}
+              height={32}
+              className="object-contain"
             />
           </div>
 
