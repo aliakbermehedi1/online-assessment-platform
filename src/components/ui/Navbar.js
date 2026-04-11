@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import Link from "next/link";
 import Image from "next/image";
@@ -8,6 +8,15 @@ import Image from "next/image";
 export default function Navbar({ title = "Dashboard", role = "employer" }) {
   const { user, logoutUser } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true);
+  }, []);
+
+  const displayName = mounted ? user?.name || "User" : "User";
+  const displayRefId = mounted ? user?.refId || "---" : "---";
 
   return (
     <>
@@ -47,17 +56,27 @@ export default function Navbar({ title = "Dashboard", role = "employer" }) {
               onClick={() => setDropdownOpen(!dropdownOpen)}
               className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
             >
-              <div className="w-9 h-9 rounded-full bg-[#6B3FE7] flex items-center justify-center text-white text-sm font-bold">
-                {user?.name?.charAt(0)?.toUpperCase() || "U"}
+              {/* Profile Image */}
+              <div className="w-9 h-9 rounded-full overflow-hidden border border-gray-200 flex-shrink-0">
+                <Image
+                  src="/default-profile.png"
+                  alt="Profile"
+                  width={36}
+                  height={36}
+                  className="object-cover w-full h-full"
+                />
               </div>
+
+              {/* Name + Ref ID */}
               <div className="text-left hidden sm:block">
                 <p className="text-sm font-semibold text-gray-800 max-w-[120px] truncate">
-                  {user?.name || "User"}
+                  {displayName}
                 </p>
                 <p className="text-xs text-gray-500">
-                  Ref. ID — {user?.refId || "---"}
+                  Ref. ID - {displayRefId}
                 </p>
               </div>
+
               <i
                 className={`fa-solid fa-chevron-down text-gray-400 text-xs transition-transform duration-200 ${dropdownOpen ? "rotate-180" : ""}`}
               ></i>
@@ -68,7 +87,7 @@ export default function Navbar({ title = "Dashboard", role = "employer" }) {
                 <div className="px-4 py-3 border-b border-gray-100">
                   <p className="text-xs text-gray-500">Signed in as</p>
                   <p className="text-sm font-semibold text-gray-800 truncate">
-                    {user?.name || "User"}
+                    {displayName}
                   </p>
                 </div>
                 <button
