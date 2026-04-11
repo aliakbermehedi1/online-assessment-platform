@@ -7,7 +7,6 @@ import { useAuth } from "@/hooks/useAuth";
 import Navbar from "@/components/ui/Navbar";
 import Footer from "@/components/ui/Footer";
 import Modal from "@/components/ui/Modal";
-import Image from "next/image";
 
 const STORAGE_ANSWERS_KEY = (id) => `exam_answers_${id}`;
 const STORAGE_TIMER_KEY = (id) => `exam_timer_end_${id}`;
@@ -25,15 +24,14 @@ export default function ExamPage() {
   const [exam, setExam] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [timeLeft, setTimeLeft] = useState(null);
-  const [checkDone, setCheckDone] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
 
   const submittedRef = useRef(false);
   const timerRef = useRef(null);
 
-  // Check already submitted
   useEffect(() => {
-    async function checkAndLoad() {
+    async function init() {
+      // Check already submitted
       try {
         const res = await fetch(`/api/submissions/check?exam_id=${id}`);
         const data = await res.json();
@@ -45,7 +43,7 @@ export default function ExamPage() {
         /* offline - continue */
       }
 
-      // Load saved answers from localStorage
+      // Load saved answers
       const savedAnswers = localStorage.getItem(STORAGE_ANSWERS_KEY(id));
       if (savedAnswers) {
         try {
@@ -54,12 +52,8 @@ export default function ExamPage() {
           /* ignore */
         }
       }
-      setCheckDone(true);
     }
-    if (id) checkAndLoad();
-  }, [id]);
-
-  useEffect(() => {
+    if (id) init();
     fetchQuestions(id);
     fetchExams();
   }, [id]);
@@ -71,7 +65,7 @@ export default function ExamPage() {
     }
   }, [exams, id]);
 
-  // Timer setup - persists across offline
+  // Timer setup — uses exam.duration directly
   useEffect(() => {
     if (!exam || timeLeft !== null) return;
     const timerKey = STORAGE_TIMER_KEY(id);
@@ -85,7 +79,7 @@ export default function ExamPage() {
     }
     const remaining = Math.floor((endTime - Date.now()) / 1000);
     setTimeLeft(remaining > 0 ? remaining : 0);
-  }, [exam, id]);
+  }, [exam]);
 
   // Timer tick
   useEffect(() => {
@@ -93,9 +87,8 @@ export default function ExamPage() {
     if (timeLeft <= 0) {
       if (!submittedRef.current) {
         submittedRef.current = true;
-        setShowTimeout(true);
         // eslint-disable-next-line react-hooks/immutability
-        handleSubmit(true);
+        handleTimeout();
       }
       return;
     }
@@ -103,21 +96,33 @@ export default function ExamPage() {
     return () => clearTimeout(timerRef.current);
   }, [timeLeft]);
 
-  // Tab switch → auto submit
+  // Tab switch detection
   useEffect(() => {
-    async function handleVisibility() {
-      if (document.hidden && !submittedRef.current && !submitting) {
-        submittedRef.current = true;
-        await handleSubmit(false, true);
+    function handleVisibility() {
+      if (document.hidden) {
+        alert("Warning: Tab switching detected! Please stay on the exam page.");
       }
     }
     document.addEventListener("visibilitychange", handleVisibility);
     return () =>
       document.removeEventListener("visibilitychange", handleVisibility);
-  }, [answers, submitting]);
+  }, []);
 
-  function saveAnswersLocally(newAnswers) {
-    localStorage.setItem(STORAGE_ANSWERS_KEY(id), JSON.stringify(newAnswers));
+  // Online/offline
+  useEffect(() => {
+    const up = () => setIsOnline(true);
+    const down = () => setIsOnline(false);
+    window.addEventListener("online", up);
+    window.addEventListener("offline", down);
+    setIsOnline(navigator.onLine);
+    return () => {
+      window.removeEventListener("online", up);
+      window.removeEventListener("offline", down);
+    };
+  }, []);
+
+  function saveAnswersLocally(ans) {
+    localStorage.setItem(STORAGE_ANSWERS_KEY(id), JSON.stringify(ans));
   }
 
   function handleAnswer(value, isCheckbox = false) {
@@ -138,78 +143,50 @@ export default function ExamPage() {
     });
   }
 
+  async function handleTimeout() {
+    setShowTimeout(true);
+    clearTimeout(timerRef.current);
+    try {
+      const savedAnswers = localStorage.getItem(STORAGE_ANSWERS_KEY(id));
+      const finalAnswers = savedAnswers ? JSON.parse(savedAnswers) : answers;
+      await submitExam(parseInt(id), finalAnswers, true);
+      localStorage.removeItem(STORAGE_ANSWERS_KEY(id));
+      localStorage.removeItem(STORAGE_TIMER_KEY(id));
+    } catch {
+      /* save offline */
+    }
+  }
+
   async function handleSaveAndContinue() {
     if (currentIdx < questions.length - 1) {
       setCurrentIdx((prev) => prev + 1);
     } else {
-      await handleSubmit(false, false);
+      await handleManualSubmit();
     }
   }
 
-  async function handleSubmit(
-    isTimeout = false,
-    isTabSwitch = false,
-    overrideAnswers = null,
-    autoOnline = false,
-  ) {
-    if (submitting && !autoOnline) return;
+  async function handleManualSubmit() {
+    if (submitting || submittedRef.current) return;
+    submittedRef.current = true;
     setSubmitting(true);
     clearTimeout(timerRef.current);
-    const finalAnswers = overrideAnswers || answers;
-
-    if (!navigator.onLine) {
-      // Save offline marker and wait for reconnect
-      localStorage.setItem(`exam_offline_${id}`, "true");
-      saveAnswersLocally(finalAnswers);
-      setSubmitting(false);
-      return;
-    }
-
     try {
-      await submitExam(parseInt(id), finalAnswers, isTimeout);
+      await submitExam(parseInt(id), answers, false);
       localStorage.removeItem(STORAGE_ANSWERS_KEY(id));
       localStorage.removeItem(STORAGE_TIMER_KEY(id));
-      localStorage.removeItem(`exam_offline_${id}`);
-      if (!isTimeout) {
-        router.push("/candidate/exam/completed");
-      }
+      router.push("/candidate/exam/completed");
     } catch {
-      // Save for retry
-      saveAnswersLocally(finalAnswers);
-      localStorage.setItem(`exam_offline_${id}`, "true");
+      submittedRef.current = false;
       setSubmitting(false);
     }
   }
-
-  // Online/offline detection
-  useEffect(() => {
-    const handleOnline = () => {
-      setIsOnline(true);
-      // Try to submit if we have pending answers
-      const pendingAnswers = localStorage.getItem(STORAGE_ANSWERS_KEY(id));
-      const wasOffline = localStorage.getItem(`exam_offline_${id}`);
-      if (pendingAnswers && wasOffline) {
-        const parsed = JSON.parse(pendingAnswers);
-        handleSubmit(false, false, parsed, true);
-        localStorage.removeItem(`exam_offline_${id}`);
-      }
-    };
-    const handleOffline = () => setIsOnline(false);
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
-    setIsOnline(navigator.onLine);
-    return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
-    };
-  }, [id]);
 
   const minutes = timeLeft !== null ? Math.floor(timeLeft / 60) : 0;
   const seconds = timeLeft !== null ? timeLeft % 60 : 0;
   const formatted = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-  const isWarning = timeLeft !== null && timeLeft <= 300; // last 5 min
+  const isWarning = timeLeft !== null && timeLeft <= 300;
 
-  if (!checkDone || !questions.length) {
+  if (!questions.length || !exam) {
     return (
       <div className="min-h-screen flex flex-col bg-[#f3f4f6]">
         <Navbar title="Akij Resource" role="candidate" />
@@ -227,11 +204,10 @@ export default function ExamPage() {
     <div className="min-h-screen flex flex-col bg-[#f3f4f6]">
       <Navbar title="Akij Resource" role="candidate" />
 
-      {/* Offline banner */}
       {!isOnline && (
         <div className="bg-yellow-500 text-white text-center text-sm py-2 px-4">
-          ⚠️ You are offline. Answers are being saved locally and will
-          auto-submit when internet returns.
+          You are offline. Answers are saved locally and will auto-submit when
+          internet returns.
         </div>
       )}
 
@@ -307,7 +283,7 @@ export default function ExamPage() {
                   prev + 1 < questions.length ? prev + 1 : prev,
                 )
               }
-              className="border border-gray-200 px-4 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+              className="border border-gray-200 px-4 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer"
             >
               Skip this Question
             </button>
@@ -324,37 +300,12 @@ export default function ExamPage() {
             </button>
           </div>
         </div>
-
-        {/* Question navigator */}
-        <div className="mt-4 flex flex-wrap gap-2">
-          {questions.map((q, idx) => (
-            <button
-              key={q.id}
-              onClick={() => setCurrentIdx(idx)}
-              className={`w-8 h-8 rounded-lg text-xs font-semibold transition-colors ${
-                idx === currentIdx
-                  ? "bg-[#6B3FE7] text-white"
-                  : answers[q.id] !== undefined && answers[q.id] !== ""
-                    ? "bg-green-100 text-green-700 border border-green-200"
-                    : "bg-white text-gray-600 border border-gray-200 hover:border-[#6B3FE7]"
-              }`}
-            >
-              {idx + 1}
-            </button>
-          ))}
-        </div>
       </main>
 
       {/* Timeout Modal */}
       <Modal isOpen={showTimeout} onClose={() => {}}>
         <div className="flex flex-col items-center text-center py-6 px-4">
-          <Image
-            src="/timeout.png"
-            alt="Timeout"
-            width={80}
-            height={80}
-            className="object-contain mb-4"
-          />
+          <div className="text-5xl mb-4">⏰</div>
           <h2 className="text-xl font-bold text-gray-800 mb-2">Timeout!</h2>
           <p className="text-gray-500 text-sm mb-6">
             Dear {user?.name}, Your exam time has been finished. Thank you for
@@ -362,7 +313,7 @@ export default function ExamPage() {
           </p>
           <button
             onClick={() => router.push("/candidate/dashboard")}
-            className="border border-gray-200 px-6 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer"
+            className="border border-gray-200 px-6 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors"
           >
             Back to Dashboard
           </button>

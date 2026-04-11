@@ -11,12 +11,6 @@ export default function CandidateExamCard({ exam }) {
   const [submitted, setSubmitted] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(true);
 
-  const now = new Date();
-  const startTime = exam.start_time ? new Date(exam.start_time) : null;
-  const endTime = exam.end_time ? new Date(exam.end_time) : null;
-  const isExpired = endTime && now > endTime;
-  const isUpcoming = startTime && now < startTime;
-
   useEffect(() => {
     async function checkStatus() {
       try {
@@ -32,24 +26,12 @@ export default function CandidateExamCard({ exam }) {
     checkStatus();
   }, [exam.id]);
 
-  function formatDateTime(dt) {
-    if (!dt) return null;
-    return new Date(dt).toLocaleString("en-BD", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
-  }
-
   const handleStart = () => {
-    if (submitted || isExpired || isUpcoming) return;
+    if (submitted) return;
     router.push(`/candidate/exam/${exam.id}`);
   };
 
-  const getButtonContent = () => {
+  const getButton = () => {
     if (checkingStatus)
       return {
         label: "...",
@@ -60,21 +42,7 @@ export default function CandidateExamCard({ exam }) {
       return {
         label: "Submitted",
         style:
-          "bg-green-50 border border-green-300 text-green-700 cursor-not-allowed",
-        disabled: true,
-      };
-    if (isExpired)
-      return {
-        label: "Expired",
-        style:
-          "bg-red-50 border border-red-200 text-red-500 cursor-not-allowed",
-        disabled: true,
-      };
-    if (isUpcoming)
-      return {
-        label: "Upcoming",
-        style:
-          "bg-yellow-50 border border-yellow-200 text-yellow-600 cursor-not-allowed",
+          "bg-green-50 border border-green-300 text-green-700 cursor-not-allowed font-semibold",
         disabled: true,
       };
     return {
@@ -85,17 +53,17 @@ export default function CandidateExamCard({ exam }) {
     };
   };
 
-  const btn = getButtonContent();
+  const btn = getButton();
 
   return (
     <div
-      className={`bg-white rounded-xl border p-5 transition-shadow ${isExpired ? "border-gray-100 opacity-70" : submitted ? "border-green-100" : "border-gray-200 hover:shadow-sm"}`}
+      className={`bg-white rounded-xl border p-5 transition-shadow ${submitted ? "border-green-200 bg-green-50/30" : "border-gray-200 hover:shadow-sm"}`}
     >
       <h3 className="font-bold text-gray-900 mb-3 text-[15px] leading-snug">
         {exam.title}
       </h3>
 
-      <div className="flex items-center gap-6 text-sm text-gray-500 mb-3 flex-wrap">
+      <div className="flex items-center gap-6 text-sm text-gray-500 mb-4 flex-wrap">
         <span className="flex items-center gap-1.5">
           <FaRegClock className="text-gray-400 text-base flex-shrink-0" />
           <span>
@@ -122,28 +90,6 @@ export default function CandidateExamCard({ exam }) {
           </span>
         </span>
       </div>
-
-      {/* Time window */}
-      {(startTime || endTime) && (
-        <div className="flex items-center gap-4 text-xs text-gray-400 mb-4 flex-wrap">
-          {startTime && (
-            <span>
-              Start:{" "}
-              <span className="text-gray-600 font-medium">
-                {formatDateTime(exam.start_time)}
-              </span>
-            </span>
-          )}
-          {endTime && (
-            <span>
-              End:{" "}
-              <span className="text-gray-600 font-medium">
-                {formatDateTime(exam.end_time)}
-              </span>
-            </span>
-          )}
-        </div>
-      )}
 
       <button
         onClick={handleStart}

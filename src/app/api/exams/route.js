@@ -42,30 +42,27 @@ export async function GET(request) {
         AND title ILIKE ${"%" + search + "%"}
       `;
     } else {
-      // Candidates only see exams within their time window
-      // Show: upcoming (start in future), active (now between start and end),
-      // Expired exams still shown but card will show "Expired" - handled on frontend
+      // Candidate: শুধু exams যেখানে অন্তত ১টা question আছে
       exams = await sql`
         SELECT e.*,
           COUNT(DISTINCT q.id) as question_count
         FROM exams e
-        LEFT JOIN questions q ON q.exam_id = e.id
+        INNER JOIN questions q ON q.exam_id = e.id
         WHERE e.title ILIKE ${"%" + search + "%"}
-        AND (
-          e.end_time IS NULL 
-          OR e.end_time > NOW() - INTERVAL '1 day'
-        )
         GROUP BY e.id
-        ORDER BY e.start_time ASC NULLS LAST, e.created_at DESC
+        HAVING COUNT(DISTINCT q.id) > 0
+        ORDER BY e.created_at DESC
         LIMIT ${limit} OFFSET ${offset}
       `;
       countResult = await sql`
-        SELECT COUNT(*) FROM exams
-        WHERE title ILIKE ${"%" + search + "%"}
-        AND (
-          e.end_time IS NULL 
-          OR e.end_time > NOW() - INTERVAL '1 day'
-        )
+        SELECT COUNT(*) FROM (
+          SELECT e.id
+          FROM exams e
+          INNER JOIN questions q ON q.exam_id = e.id
+          WHERE e.title ILIKE ${"%" + search + "%"}
+          GROUP BY e.id
+          HAVING COUNT(DISTINCT q.id) > 0
+        ) sub
       `;
     }
 
@@ -108,7 +105,7 @@ export async function POST(request) {
 
     const result = await sql`
       INSERT INTO exams (employer_id, title, total_candidates, total_slots, total_question_sets, question_type, start_time, end_time, duration)
-      VALUES (${user.id}, ${title}, ${total_candidates}, ${total_slots}, ${total_question_sets}, ${question_type}, ${start_time}, ${end_time}, ${duration})
+      VALUES (${user.id}, ${title}, ${total_candidates}, ${total_slots}, ${total_question_sets}, ${question_type}, ${start_time || null}, ${end_time || null}, ${duration})
       RETURNING *
     `;
 
