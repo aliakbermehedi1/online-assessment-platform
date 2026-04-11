@@ -1,38 +1,52 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { FaRegClock } from "react-icons/fa6";
+import { FiFileText } from "react-icons/fi";
+import { RxCross2 } from "react-icons/rx";
 
 export default function CandidateExamCard({ exam }) {
   const router = useRouter();
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 p-5 hover:shadow-md transition-shadow">
-      <h3 className="font-semibold text-gray-800 mb-3 text-base">
+    <div className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-sm transition-shadow">
+      <h3 className="font-bold text-gray-900 mb-3 text-[15px] leading-snug">
         {exam.title}
       </h3>
-      <div className="flex items-center gap-5 text-sm text-gray-600 mb-4 flex-wrap">
+
+      <div className="flex items-center gap-6 text-sm text-gray-500 mb-4 flex-wrap">
         <span className="flex items-center gap-1.5">
-          <span>🕐</span>
+          <FaRegClock className="text-gray-400 text-base flex-shrink-0" />
           <span>
-            Duration: <strong>{exam.duration} min</strong>
+            Duration:{" "}
+            <strong className="text-gray-900">{exam.duration} min</strong>
           </span>
         </span>
+
         <span className="flex items-center gap-1.5">
-          <span>📄</span>
+          <FiFileText className="text-gray-400 text-base flex-shrink-0" />
           <span>
-            Question: <strong>{exam.question_count || 0}</strong>
+            Question:{" "}
+            <strong className="text-gray-900">
+              {exam.question_count || 0}
+            </strong>
           </span>
         </span>
+
         <span className="flex items-center gap-1.5">
-          <span>✖</span>
+          <RxCross2 className="text-gray-400 text-base flex-shrink-0" />
           <span>
-            Negative Marking: <strong>{exam.negative_marking}/wrong</strong>
+            Negative Marking:{" "}
+            <strong className="text-gray-900">
+              {exam.negative_marking ?? "-0.25"}/wrong
+            </strong>
           </span>
         </span>
       </div>
+
       <button
         onClick={() => router.push(`/candidate/exam/${exam.id}`)}
-        className="border-2 border-[#6B3FE7] text-[#6B3FE7] hover:bg-purple-50 px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+        className="border border-[#6B3FE7] text-[#6B3FE7] hover:bg-purple-50 px-5 py-[7px] rounded-lg text-sm font-semibold transition-colors cursor-pointer"
       >
         Start
       </button>
