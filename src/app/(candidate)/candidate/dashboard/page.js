@@ -5,6 +5,7 @@ import { useExam } from "@/hooks/useExam";
 import Navbar from "@/components/ui/Navbar";
 import Footer from "@/components/ui/Footer";
 import CandidateExamCard from "@/components/candidate/ExamCard";
+import { FiChevronUp } from "react-icons/fi";
 
 export default function CandidateDashboard() {
   const { exams, loading, totalCount, fetchExams } = useExam();
@@ -66,28 +67,44 @@ export default function CandidateDashboard() {
 
         {totalPages > 1 && (
           <div className="flex items-center justify-between mt-6">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="w-8 h-8 flex items-center justify-center border border-gray-200 rounded-lg text-gray-600 disabled:opacity-40 hover:border-[#6B3FE7] hover:text-[#6B3FE7]"
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-600 disabled:opacity-40 disabled:cursor-not-allowed hover:border-[#6B3FE7] hover:text-[#6B3FE7] hover:bg-purple-50 transition-all"
               >
                 ‹
               </button>
-              <span className="w-8 h-8 flex items-center justify-center bg-[#6B3FE7] text-white rounded-lg text-sm font-semibold">
-                {page}
-              </span>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setPage(p)}
+                  className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-medium transition-all ${
+                    page === p
+                      ? "bg-[#6B3FE7] text-white border border-[#6B3FE7]"
+                      : "border border-gray-200 text-gray-600 hover:border-[#6B3FE7] hover:text-[#6B3FE7] hover:bg-purple-50"
+                  }`}
+                >
+                  {p}
+                </button>
+              ))}
+
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="w-8 h-8 flex items-center justify-center border border-gray-200 rounded-lg text-gray-600 disabled:opacity-40 hover:border-[#6B3FE7] hover:text-[#6B3FE7]"
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-600 disabled:opacity-40 disabled:cursor-not-allowed hover:border-[#6B3FE7] hover:text-[#6B3FE7] hover:bg-purple-50 transition-all"
               >
                 ›
               </button>
             </div>
+
             <div className="flex items-center gap-2 text-sm text-gray-500">
               <span>Online Test Per Page</span>
-              <span className="font-semibold text-gray-700">{limit} ▲</span>
+              <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-1.5 shadow-sm">
+                <span className="font-semibold text-gray-700">{limit}</span>
+                <FiChevronUp className="text-gray-600 text-sm" />
+              </div>
             </div>
           </div>
         )}

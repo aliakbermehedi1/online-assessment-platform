@@ -6,7 +6,7 @@ import { FaRegFileLines, FaRegClock } from "react-icons/fa6";
 
 export default function EmployerExamCard({ exam }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-sm transition-shadow">
+    <div className="bg-white rounded-xl border border-[#E5E7EB] p-5 hover:shadow-sm transition-shadow">
       <h3 className="font-bold text-gray-900 mb-3 text-[15px] leading-snug">
         {exam.title}
       </h3>

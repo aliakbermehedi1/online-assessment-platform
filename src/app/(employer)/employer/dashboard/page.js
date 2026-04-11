@@ -28,7 +28,7 @@ export default function EmployerDashboard() {
   const hasExams = exams.length > 0;
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#f0f2f5]">
+    <div className="min-h-screen flex flex-col bg-[#F9FAFB]">
       <Navbar title="Dashboard" role="employer" />
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-6">
@@ -91,30 +91,46 @@ export default function EmployerDashboard() {
 
             {/* Pagination */}
             <div className="flex items-center justify-between mt-5">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1">
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="text-gray-500 disabled:opacity-30 hover:text-gray-900 transition-colors"
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#111827] text-[#111827] disabled:opacity-30 disabled:cursor-not-allowed hover:border-[#111827] hover:text-[#111827] hover:bg-purple-50 transition-all"
                 >
-                  <FiChevronLeft className="text-lg" />
+                  <FiChevronLeft className="text-base" />
                 </button>
-                <span className="text-sm font-medium text-gray-800">
-                  {page}
-                </span>
+
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                  (p) => (
+                    <button
+                      key={p}
+                      onClick={() => setPage(p)}
+                      className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-medium transition-all ${
+                        page === p
+                          ? "bg-[#F8F8F8] text-[#2E2E2F]"
+                          : "border border-gray-100 text-[#2E2E2F] hover:border-[##F8F8F8] hover:text-[#2E2E2F] hover:bg-purple-50"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ),
+                )}
+
                 <button
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
-                  className="text-gray-500 disabled:opacity-30 hover:text-gray-900 transition-colors"
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#111827] text-[#111827] disabled:opacity-30 disabled:cursor-not-allowed hover:border-[#111827] hover:text-[#111827] hover:bg-purple-50 transition-all"
                 >
-                  <FiChevronRight className="text-lg" />
+                  <FiChevronRight className="text-base" />
                 </button>
               </div>
 
               <div className="flex items-center gap-2 text-sm text-gray-500">
                 <span>Online Test Per Page</span>
-                <span className="font-semibold text-gray-800">{limit}</span>
-                <FiChevronUp className="text-gray-600" />
+                <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-1.5 shadow-sm">
+                  <span className="font-semibold text-gray-800">{limit}</span>
+                  <FiChevronUp className="text-gray-600 text-sm" />
+                </div>
               </div>
             </div>
           </>
