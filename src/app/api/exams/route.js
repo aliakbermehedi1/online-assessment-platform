@@ -42,7 +42,6 @@ export async function GET(request) {
         AND title ILIKE ${"%" + search + "%"}
       `;
     } else {
-      // Candidate: শুধু exams যেখানে অন্তত ১টা question আছে
       exams = await sql`
         SELECT e.*,
           COUNT(DISTINCT q.id) as question_count
@@ -110,6 +109,39 @@ export async function POST(request) {
     `;
 
     return Response.json({ exam: result[0] }, { status: 201 });
+  } catch (error) {
+    return Response.json({ error: error.message }, { status: 500 });
+  }
+}
+
+export async function DELETE(request) {
+  try {
+    const user = await getUser();
+    if (!user || user.role !== "employer") {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return Response.json({ error: "id is required" }, { status: 400 });
+    }
+
+    // Verify ownership
+    const examCheck = await sql`
+      SELECT id FROM exams WHERE id = ${id} AND employer_id = ${user.id}
+    `;
+    if (examCheck.length === 0) {
+      return Response.json(
+        { error: "Exam not found or unauthorized" },
+        { status: 404 },
+      );
+    }
+
+    await sql`DELETE FROM exams WHERE id = ${id} AND employer_id = ${user.id}`;
+
+    return Response.json({ success: true });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }

@@ -4,6 +4,7 @@ import { useFormik } from "formik";
 import * as Yup from "yup";
 import { useExam } from "@/hooks/useExam";
 import Button from "@/components/ui/Button";
+import DropdownField from "@/components/ui/DropdownField";
 import { useState } from "react";
 
 const Label = ({ children, required }) => (
@@ -30,9 +31,19 @@ const schema = Yup.object({
   end_time: Yup.string().optional(),
 });
 
-const SLOT_OPTIONS = [1, 2, 3, 4, 5];
-const QSET_OPTIONS = [1, 2, 3, 4, 5];
-const QTYPE_OPTIONS = ["MCQ", "Checkbox", "Text"];
+const SLOT_OPTIONS = [1, 2, 3, 4, 5].map((n) => ({
+  label: String(n),
+  value: n,
+}));
+const QSET_OPTIONS = [1, 2, 3, 4, 5].map((n) => ({
+  label: String(n),
+  value: n,
+}));
+const QTYPE_OPTIONS = [
+  { label: "MCQ", value: "MCQ" },
+  { label: "Checkbox", value: "Checkbox" },
+  { label: "Text", value: "Text" },
+];
 
 export default function CreateTestForm({ onDone, initialData }) {
   const { createExam } = useExam();
@@ -76,13 +87,6 @@ export default function CreateTestForm({ onDone, initialData }) {
 
   const inputClass = (field) =>
     `w-full px-4 py-3 border rounded-lg text-sm outline-none focus:border-[#6B3FE7] focus:ring-2 focus:ring-purple-100 transition-all placeholder-gray-400 ${
-      formik.touched[field] && formik.errors[field]
-        ? "border-red-400"
-        : "border-gray-300"
-    }`;
-
-  const selectClass = (field) =>
-    `w-full px-4 py-3 border rounded-lg text-sm outline-none focus:border-[#6B3FE7] focus:ring-2 focus:ring-purple-100 transition-all bg-white ${
       formik.touched[field] && formik.errors[field]
         ? "border-red-400"
         : "border-gray-300"
@@ -161,7 +165,6 @@ export default function CreateTestForm({ onDone, initialData }) {
       </h2>
       {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
       <div className="flex flex-col gap-5">
-        {/* Title */}
         <div>
           <Label required>Online Test Title</Label>
           <input
@@ -177,7 +180,6 @@ export default function CreateTestForm({ onDone, initialData }) {
           )}
         </div>
 
-        {/* Total Candidates + Total Slots */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <Label required>Total Candidates</Label>
@@ -197,74 +199,43 @@ export default function CreateTestForm({ onDone, initialData }) {
                 </p>
               )}
           </div>
-          <div>
-            <Label required>Total Slots</Label>
-            <select
-              name="total_slots"
-              value={formik.values.total_slots}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-              className={selectClass("total_slots")}
-            >
-              <option value="">Select total slots</option>
-              {SLOT_OPTIONS.map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </select>
-            {formik.touched.total_slots && formik.errors.total_slots && (
-              <p className="text-xs text-red-500 mt-1">
-                {formik.errors.total_slots}
-              </p>
-            )}
-          </div>
+
+          <DropdownField
+            label="Total Slots"
+            required
+            placeholder="Select total slots"
+            options={SLOT_OPTIONS}
+            value={formik.values.total_slots}
+            onChange={(val) => formik.setFieldValue("total_slots", val)}
+            error={formik.touched.total_slots && formik.errors.total_slots}
+          />
         </div>
 
-        {/* Total Question Set + Question Type */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <Label required>Total Question Set</Label>
-            <select
-              name="total_question_sets"
-              value={formik.values.total_question_sets}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-              className={selectClass("total_question_sets")}
-            >
-              <option value="">Select total question set</option>
-              {QSET_OPTIONS.map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <Label required>Question Type</Label>
-            <select
-              name="question_type"
-              value={formik.values.question_type}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-              className={selectClass("question_type")}
-            >
-              <option value="">Select question type</option>
-              {QTYPE_OPTIONS.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-            {formik.touched.question_type && formik.errors.question_type && (
-              <p className="text-xs text-red-500 mt-1">
-                {formik.errors.question_type}
-              </p>
-            )}
-          </div>
+          <DropdownField
+            label="Total Question Set"
+            required
+            placeholder="Select total question set"
+            options={QSET_OPTIONS}
+            value={formik.values.total_question_sets}
+            onChange={(val) => formik.setFieldValue("total_question_sets", val)}
+            error={
+              formik.touched.total_question_sets &&
+              formik.errors.total_question_sets
+            }
+          />
+
+          <DropdownField
+            label="Question Type"
+            required
+            placeholder="Select question type"
+            options={QTYPE_OPTIONS}
+            value={formik.values.question_type}
+            onChange={(val) => formik.setFieldValue("question_type", val)}
+            error={formik.touched.question_type && formik.errors.question_type}
+          />
         </div>
 
-        {/* Start Time + End Time + Duration */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
             <Label>Start Time</Label>

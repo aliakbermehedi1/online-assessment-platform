@@ -27,6 +27,11 @@ export default function EmployerDashboard() {
   const totalPages = Math.ceil(totalCount / limit) || 1;
   const hasExams = exams.length > 0;
 
+  function handleDelete(deletedId) {
+    // Re-fetch to sync with server after deletion
+    fetchExams({ search, page, limit });
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-[#F9FAFB]">
       <Navbar title="Dashboard" role="employer" />
@@ -85,7 +90,11 @@ export default function EmployerDashboard() {
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {exams.map((exam) => (
-                <EmployerExamCard key={exam.id} exam={exam} />
+                <EmployerExamCard
+                  key={exam.id}
+                  exam={exam}
+                  onDelete={handleDelete}
+                />
               ))}
             </div>
 
