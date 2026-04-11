@@ -8,11 +8,9 @@ import {
   logout,
 } from "@/store/slices/authSlice";
 import axiosInstance from "@/lib/axios";
-import { useRouter } from "next/navigation";
 
 export function useAuth() {
   const dispatch = useDispatch();
-  const router = useRouter();
   const { user, role, isAuthenticated, loading, error } = useSelector(
     (state) => state.auth,
   );
@@ -25,7 +23,7 @@ export function useAuth() {
         password,
       });
       dispatch(setUser({ user: res.data.user, role: "employer" }));
-      router.push("/employer/dashboard");
+      window.location.href = "/employer/dashboard";
     } catch (err) {
       dispatch(setError(err.response?.data?.error || "Login failed"));
     } finally {
@@ -41,7 +39,7 @@ export function useAuth() {
         password,
       });
       dispatch(setUser({ user: res.data.user, role: "candidate" }));
-      router.push("/candidate/dashboard");
+      window.location.href = "/candidate/dashboard";
     } catch (err) {
       dispatch(setError(err.response?.data?.error || "Login failed"));
     } finally {
@@ -49,14 +47,15 @@ export function useAuth() {
     }
   }
 
-  async function logoutUser(role) {
+  async function logoutUser(currentRole) {
     try {
       const endpoint =
-        role === "employer" ? "/auth/employer" : "/auth/candidate";
+        currentRole === "employer" ? "/auth/employer" : "/auth/candidate";
       await axiosInstance.delete(endpoint);
     } finally {
       dispatch(logout());
-      router.push(role === "employer" ? "/employer/login" : "/candidate/login");
+      window.location.href =
+        currentRole === "employer" ? "/employer/login" : "/candidate/login";
     }
   }
 
