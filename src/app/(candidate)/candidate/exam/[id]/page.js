@@ -4,11 +4,13 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useExam } from "@/hooks/useExam";
 import { useAuth } from "@/hooks/useAuth";
-import { useTimer } from "@/hooks/useTimer";
 import Navbar from "@/components/ui/Navbar";
 import Footer from "@/components/ui/Footer";
 import Modal from "@/components/ui/Modal";
 import Image from "next/image";
+
+const STORAGE_ANSWERS_KEY = (id) => `exam_answers_${id}`;
+const STORAGE_TIMER_KEY = (id) => `exam_timer_end_${id}`;
 
 export default function ExamPage() {
   const { id } = useParams();
@@ -16,13 +18,46 @@ export default function ExamPage() {
   const { questions, fetchQuestions, submitExam, exams, fetchExams } =
     useExam();
   const { user } = useAuth();
+
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answers, setAnswers] = useState({});
   const [showTimeout, setShowTimeout] = useState(false);
   const [exam, setExam] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-  const [alreadySubmitted, setAlreadySubmitted] = useState(false);
-  const tabSwitchSubmittedRef = useRef(false);
+  const [timeLeft, setTimeLeft] = useState(null);
+  const [checkDone, setCheckDone] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
+
+  const submittedRef = useRef(false);
+  const timerRef = useRef(null);
+
+  // Check already submitted
+  useEffect(() => {
+    async function checkAndLoad() {
+      try {
+        const res = await fetch(`/api/submissions/check?exam_id=${id}`);
+        const data = await res.json();
+        if (data.submitted) {
+          router.replace("/candidate/exam/completed?already=true");
+          return;
+        }
+      } catch {
+        /* offline - continue */
+      }
+
+      // Load saved answers from localStorage
+      const savedAnswers = localStorage.getItem(STORAGE_ANSWERS_KEY(id));
+      if (savedAnswers) {
+        try {
+          setAnswers(JSON.parse(savedAnswers));
+        } catch {
+          /* ignore */
+        }
+      }
+      setCheckDone(true);
+    }
+    if (id) checkAndLoad();
+  }, [id]);
 
   useEffect(() => {
     fetchQuestions(id);
@@ -36,28 +71,43 @@ export default function ExamPage() {
     }
   }, [exams, id]);
 
-  // Check if already submitted
+  // Timer setup - persists across offline
   useEffect(() => {
-    async function checkSubmission() {
-      try {
-        const res = await fetch(`/api/submissions/check?exam_id=${id}`);
-        const data = await res.json();
-        if (data.submitted) {
-          setAlreadySubmitted(true);
-          router.replace("/candidate/exam/completed?already=true");
-        }
-      } catch {
-        // ignore
-      }
+    if (!exam || timeLeft !== null) return;
+    const timerKey = STORAGE_TIMER_KEY(id);
+    const saved = localStorage.getItem(timerKey);
+    let endTime;
+    if (saved) {
+      endTime = parseInt(saved);
+    } else {
+      endTime = Date.now() + exam.duration * 60 * 1000;
+      localStorage.setItem(timerKey, endTime.toString());
     }
-    if (id) checkSubmission();
-  }, [id]);
+    const remaining = Math.floor((endTime - Date.now()) / 1000);
+    setTimeLeft(remaining > 0 ? remaining : 0);
+  }, [exam, id]);
+
+  // Timer tick
+  useEffect(() => {
+    if (timeLeft === null) return;
+    if (timeLeft <= 0) {
+      if (!submittedRef.current) {
+        submittedRef.current = true;
+        setShowTimeout(true);
+        // eslint-disable-next-line react-hooks/immutability
+        handleSubmit(true);
+      }
+      return;
+    }
+    timerRef.current = setTimeout(() => setTimeLeft((t) => t - 1), 1000);
+    return () => clearTimeout(timerRef.current);
+  }, [timeLeft]);
 
   // Tab switch → auto submit
   useEffect(() => {
     async function handleVisibility() {
-      if (document.hidden && !tabSwitchSubmittedRef.current && !submitting) {
-        tabSwitchSubmittedRef.current = true;
+      if (document.hidden && !submittedRef.current && !submitting) {
+        submittedRef.current = true;
         await handleSubmit(false, true);
       }
     }
@@ -66,46 +116,26 @@ export default function ExamPage() {
       document.removeEventListener("visibilitychange", handleVisibility);
   }, [answers, submitting]);
 
-  // Fullscreen exit detection (warning only)
-  useEffect(() => {
-    function handleFullscreenChange() {
-      if (!document.fullscreenElement) {
-        alert("Warning: Please stay in fullscreen mode during the exam.");
-      }
-    }
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
-    return () =>
-      document.removeEventListener("fullscreenchange", handleFullscreenChange);
-  }, []);
-
-  const handleTimeout = useCallback(async () => {
-    setShowTimeout(true);
-    await handleSubmit(true, false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [answers, id]);
-
-  const { formatted, clearTimer } = useTimer(
-    exam?.duration || 30,
-    handleTimeout,
-  );
-
-  const currentQuestion = questions[currentIdx];
+  function saveAnswersLocally(newAnswers) {
+    localStorage.setItem(STORAGE_ANSWERS_KEY(id), JSON.stringify(newAnswers));
+  }
 
   function handleAnswer(value, isCheckbox = false) {
+    const qId = questions[currentIdx].id;
     setAnswers((prev) => {
+      let updated;
       if (isCheckbox) {
-        const current = prev[currentQuestion.id] || [];
-        const updated = current.includes(value)
+        const current = prev[qId] || [];
+        const newArr = current.includes(value)
           ? current.filter((v) => v !== value)
           : [...current, value];
-        return { ...prev, [currentQuestion.id]: updated };
+        updated = { ...prev, [qId]: newArr };
+      } else {
+        updated = { ...prev, [qId]: value };
       }
-      return { ...prev, [currentQuestion.id]: value };
+      saveAnswersLocally(updated);
+      return updated;
     });
-    localStorage.setItem(
-      "exam_answers",
-      JSON.stringify({ ...answers, [currentQuestion.id]: value }),
-    );
   }
 
   async function handleSaveAndContinue() {
@@ -116,23 +146,70 @@ export default function ExamPage() {
     }
   }
 
-  async function handleSubmit(isTimeout = false, isTabSwitch = false) {
-    if (submitting) return;
+  async function handleSubmit(
+    isTimeout = false,
+    isTabSwitch = false,
+    overrideAnswers = null,
+    autoOnline = false,
+  ) {
+    if (submitting && !autoOnline) return;
     setSubmitting(true);
-    clearTimer();
+    clearTimeout(timerRef.current);
+    const finalAnswers = overrideAnswers || answers;
+
+    if (!navigator.onLine) {
+      // Save offline marker and wait for reconnect
+      localStorage.setItem(`exam_offline_${id}`, "true");
+      saveAnswersLocally(finalAnswers);
+      setSubmitting(false);
+      return;
+    }
+
     try {
-      await submitExam(parseInt(id), answers, isTimeout);
-      localStorage.removeItem("exam_answers");
-      localStorage.removeItem("exam_timer_end");
+      await submitExam(parseInt(id), finalAnswers, isTimeout);
+      localStorage.removeItem(STORAGE_ANSWERS_KEY(id));
+      localStorage.removeItem(STORAGE_TIMER_KEY(id));
+      localStorage.removeItem(`exam_offline_${id}`);
       if (!isTimeout) {
         router.push("/candidate/exam/completed");
       }
     } catch {
+      // Save for retry
+      saveAnswersLocally(finalAnswers);
+      localStorage.setItem(`exam_offline_${id}`, "true");
       setSubmitting(false);
     }
   }
 
-  if (alreadySubmitted) {
+  // Online/offline detection
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      // Try to submit if we have pending answers
+      const pendingAnswers = localStorage.getItem(STORAGE_ANSWERS_KEY(id));
+      const wasOffline = localStorage.getItem(`exam_offline_${id}`);
+      if (pendingAnswers && wasOffline) {
+        const parsed = JSON.parse(pendingAnswers);
+        handleSubmit(false, false, parsed, true);
+        localStorage.removeItem(`exam_offline_${id}`);
+      }
+    };
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    setIsOnline(navigator.onLine);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, [id]);
+
+  const minutes = timeLeft !== null ? Math.floor(timeLeft / 60) : 0;
+  const seconds = timeLeft !== null ? timeLeft % 60 : 0;
+  const formatted = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  const isWarning = timeLeft !== null && timeLeft <= 300; // last 5 min
+
+  if (!checkDone || !questions.length) {
     return (
       <div className="min-h-screen flex flex-col bg-[#f3f4f6]">
         <Navbar title="Akij Resource" role="candidate" />
@@ -144,21 +221,19 @@ export default function ExamPage() {
     );
   }
 
-  if (!currentQuestion) {
-    return (
-      <div className="min-h-screen flex flex-col bg-[#f3f4f6]">
-        <Navbar title="Akij Resource" role="candidate" />
-        <div className="flex-1 flex items-center justify-center">
-          <div className="w-8 h-8 border-4 border-[#6B3FE7] border-t-transparent rounded-full animate-spin" />
-        </div>
-        <Footer />
-      </div>
-    );
-  }
+  const currentQuestion = questions[currentIdx];
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f3f4f6]">
       <Navbar title="Akij Resource" role="candidate" />
+
+      {/* Offline banner */}
+      {!isOnline && (
+        <div className="bg-yellow-500 text-white text-center text-sm py-2 px-4">
+          ⚠️ You are offline. Answers are being saved locally and will
+          auto-submit when internet returns.
+        </div>
+      )}
 
       <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-8">
         {/* Timer bar */}
@@ -166,7 +241,9 @@ export default function ExamPage() {
           <span className="text-gray-700 font-medium">
             Question ({currentIdx + 1}/{questions.length})
           </span>
-          <span className="bg-gray-100 px-4 py-2 rounded-lg font-semibold text-gray-700">
+          <span
+            className={`px-4 py-2 rounded-lg font-semibold ${isWarning ? "bg-red-100 text-red-600 animate-pulse" : "bg-gray-100 text-gray-700"}`}
+          >
             {formatted} left
           </span>
         </div>
@@ -179,20 +256,10 @@ export default function ExamPage() {
 
           {currentQuestion.question_type === "Text" ? (
             <div className="border border-gray-200 rounded-lg p-3 mb-4 bg-gray-50">
-              <div className="flex items-center gap-2 mb-2 text-xs text-gray-400">
-                <span>↩</span>
-                <span>↪</span>
-                <span className="border-x border-gray-200 px-2">
-                  Normal text ▾
-                </span>
-                <span className="font-bold">B</span>
-                <span className="italic">I</span>
-                <span className="underline">U</span>
-              </div>
               <textarea
                 value={answers[currentQuestion.id] || ""}
                 onChange={(e) => handleAnswer(e.target.value)}
-                placeholder="Type questions here.."
+                placeholder="Type your answer here..."
                 rows={5}
                 className="w-full bg-transparent outline-none text-sm text-gray-700 resize-none"
               />
@@ -256,6 +323,25 @@ export default function ExamPage() {
                   : "Save & Continue"}
             </button>
           </div>
+        </div>
+
+        {/* Question navigator */}
+        <div className="mt-4 flex flex-wrap gap-2">
+          {questions.map((q, idx) => (
+            <button
+              key={q.id}
+              onClick={() => setCurrentIdx(idx)}
+              className={`w-8 h-8 rounded-lg text-xs font-semibold transition-colors ${
+                idx === currentIdx
+                  ? "bg-[#6B3FE7] text-white"
+                  : answers[q.id] !== undefined && answers[q.id] !== ""
+                    ? "bg-green-100 text-green-700 border border-green-200"
+                    : "bg-white text-gray-600 border border-gray-200 hover:border-[#6B3FE7]"
+              }`}
+            >
+              {idx + 1}
+            </button>
+          ))}
         </div>
       </main>
 

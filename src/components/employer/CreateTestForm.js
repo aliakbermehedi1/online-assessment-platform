@@ -8,7 +8,6 @@ import DropdownField from "@/components/ui/DropdownField";
 import DateField from "@/components/ui/DateField";
 import { useState } from "react";
 
-// ─── Dropdown Options ───────────────────────────────────────────────────────
 const SLOT_OPTIONS = [1, 2, 3, 4, 5].map((n) => ({
   label: String(n),
   value: n,
@@ -23,30 +22,15 @@ const QUESTION_TYPE_OPTIONS = [
   { label: "Text", value: "Text" },
 ];
 
-// ─── Yup Validation ─────────────────────────────────────────────────────────
-const schema = Yup.object({
-  title: Yup.string().required("Title is required"),
-  total_candidates: Yup.number()
-    .typeError("Must be a number")
-    .required("Required")
-    .min(1, "Min 1"),
-  total_slots: Yup.number().required("Required").min(1),
-  total_question_sets: Yup.number().required("Required").min(1),
-  question_type: Yup.string().required("Required"),
-  start_time: Yup.mixed().required("Required"),
-  end_time: Yup.mixed().required("Required"),
-});
-
-// ─── Helper: calculate duration in minutes ──────────────────────────────────
 function calcDuration(start, end) {
   if (!start || !end) return "";
   const s = new Date(start);
   const e = new Date(end);
+  if (isNaN(s) || isNaN(e)) return "";
   const diff = Math.round((e - s) / 60000);
   return diff > 0 ? diff : "";
 }
 
-// ─── Reusable field label ────────────────────────────────────────────────────
 const Label = ({ children, required }) => (
   <label className="block text-sm font-medium text-gray-700 mb-1.5">
     {children}
@@ -54,7 +38,25 @@ const Label = ({ children, required }) => (
   </label>
 );
 
-// ─── Main Form ───────────────────────────────────────────────────────────────
+const schema = Yup.object({
+  title: Yup.string().required("Title is required"),
+  total_candidates: Yup.number()
+    .typeError("Must be a number")
+    .required("Required")
+    .min(1),
+  total_slots: Yup.number().required("Required").min(1),
+  total_question_sets: Yup.number().required("Required").min(1),
+  question_type: Yup.string().required("Required"),
+  start_time: Yup.mixed().required("Start time required"),
+  end_time: Yup.mixed()
+    .required("End time required")
+    .test("after-start", "End time must be after start time", function (value) {
+      const { start_time } = this.parent;
+      if (!start_time || !value) return true;
+      return new Date(value) > new Date(start_time);
+    }),
+});
+
 export default function CreateTestForm({ onDone, initialData }) {
   const { createExam } = useExam();
   const [loading, setLoading] = useState(false);
@@ -68,8 +70,10 @@ export default function CreateTestForm({ onDone, initialData }) {
       total_slots: initialData?.total_slots || "",
       total_question_sets: initialData?.total_question_sets || "",
       question_type: initialData?.question_type || "",
-      start_time: initialData?.start_time || "",
-      end_time: initialData?.end_time || "",
+      start_time: initialData?.start_time
+        ? new Date(initialData.start_time)
+        : "",
+      end_time: initialData?.end_time ? new Date(initialData.end_time) : "",
     },
     validationSchema: schema,
     onSubmit: async (values) => {
@@ -81,7 +85,17 @@ export default function CreateTestForm({ onDone, initialData }) {
       setError("");
       try {
         const duration = calcDuration(values.start_time, values.end_time);
-        const exam = await createExam({ ...values, duration: duration || 30 });
+        if (!duration) {
+          setError("Cannot calculate duration. Check start/end times.");
+          setLoading(false);
+          return;
+        }
+        const exam = await createExam({
+          ...values,
+          duration,
+          start_time: new Date(values.start_time).toISOString(),
+          end_time: new Date(values.end_time).toISOString(),
+        });
         onDone(exam);
       } catch (err) {
         setError(err.message);
@@ -96,7 +110,6 @@ export default function CreateTestForm({ onDone, initialData }) {
     formik.values.end_time,
   );
 
-  // ── Preview Mode ─────────────────────────────────────────────────────────
   if (preview) {
     return (
       <div className="bg-white rounded-xl border border-gray-100 p-6">
@@ -109,12 +122,10 @@ export default function CreateTestForm({ onDone, initialData }) {
             ✏️ Edit
           </button>
         </div>
-
         <p className="text-xs text-gray-400 mb-1">Online Test Title</p>
         <p className="font-semibold text-gray-800 mb-4">
           {formik.values.title}
         </p>
-
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
           {[
             ["Total Candidates", formik.values.total_candidates],
@@ -128,14 +139,29 @@ export default function CreateTestForm({ onDone, initialData }) {
             </div>
           ))}
         </div>
-
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div>
+            <p className="text-xs text-gray-400">Start Time</p>
+            <p className="font-semibold text-gray-800 text-sm">
+              {formik.values.start_time
+                ? new Date(formik.values.start_time).toLocaleString()
+                : "—"}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-400">End Time</p>
+            <p className="font-semibold text-gray-800 text-sm">
+              {formik.values.end_time
+                ? new Date(formik.values.end_time).toLocaleString()
+                : "—"}
+            </p>
+          </div>
+        </div>
         <p className="text-xs text-gray-400 mb-1">Question Type</p>
         <p className="font-semibold text-gray-800 mb-6">
           {formik.values.question_type}
         </p>
-
         {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
-
         <div className="flex justify-between">
           <Button variant="outline" onClick={() => setPreview(false)}>
             Cancel
@@ -148,17 +174,13 @@ export default function CreateTestForm({ onDone, initialData }) {
     );
   }
 
-  // ── Edit Mode ─────────────────────────────────────────────────────────────
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-8 max-w-3xl mx-auto">
       <h2 className="font-semibold text-gray-900 text-base mb-6">
         Basic Information
       </h2>
-
       {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
-
       <div className="flex flex-col gap-5">
-        {/* Online Test Title */}
         <div>
           <Label required>Online Test Title</Label>
           <input
@@ -167,18 +189,13 @@ export default function CreateTestForm({ onDone, initialData }) {
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
             placeholder="Enter online test title"
-            className={`w-full px-4 py-3 border rounded-lg text-sm outline-none focus:border-[#6B3FE7] focus:ring-2 focus:ring-purple-100 transition-all placeholder-gray-400 ${
-              formik.touched.title && formik.errors.title
-                ? "border-red-400"
-                : "border-gray-300"
-            }`}
+            className={`w-full px-4 py-3 border rounded-lg text-sm outline-none focus:border-[#6B3FE7] focus:ring-2 focus:ring-purple-100 transition-all placeholder-gray-400 ${formik.touched.title && formik.errors.title ? "border-red-400" : "border-gray-300"}`}
           />
           {formik.touched.title && formik.errors.title && (
             <p className="text-xs text-red-500 mt-1">{formik.errors.title}</p>
           )}
         </div>
 
-        {/* Total Candidates | Total Slots */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <Label required>Total Candidates</Label>
@@ -189,12 +206,7 @@ export default function CreateTestForm({ onDone, initialData }) {
               onChange={formik.handleChange}
               onBlur={formik.handleBlur}
               placeholder="Enter total candidates"
-              className={`w-full px-4 py-3 border rounded-lg text-sm outline-none focus:border-[#6B3FE7] focus:ring-2 focus:ring-purple-100 transition-all placeholder-gray-400 ${
-                formik.touched.total_candidates &&
-                formik.errors.total_candidates
-                  ? "border-red-400"
-                  : "border-gray-300"
-              }`}
+              className={`w-full px-4 py-3 border rounded-lg text-sm outline-none focus:border-[#6B3FE7] focus:ring-2 focus:ring-purple-100 transition-all placeholder-gray-400 ${formik.touched.total_candidates && formik.errors.total_candidates ? "border-red-400" : "border-gray-300"}`}
             />
             {formik.touched.total_candidates &&
               formik.errors.total_candidates && (
@@ -203,7 +215,6 @@ export default function CreateTestForm({ onDone, initialData }) {
                 </p>
               )}
           </div>
-
           <DropdownField
             label="Total Slots"
             required
@@ -215,7 +226,6 @@ export default function CreateTestForm({ onDone, initialData }) {
           />
         </div>
 
-        {/* Total Question Set | Question Type */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <DropdownField
             label="Total Question Set"
@@ -229,7 +239,6 @@ export default function CreateTestForm({ onDone, initialData }) {
               formik.errors.total_question_sets
             }
           />
-
           <DropdownField
             label="Question Type"
             required
@@ -244,45 +253,47 @@ export default function CreateTestForm({ onDone, initialData }) {
         {/* Start Time | End Time | Duration (auto) */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <DateField
-            label="Start Time"
+            label="Start Date & Time"
             name="start_time"
-            type="time"
+            type="datetime"
             required
             value={formik.values.start_time}
             onChange={({ target }) => {
               formik.setFieldValue("start_time", target.value);
+              formik.setFieldValue("end_time", "");
             }}
             onBlur={formik.handleBlur}
             error={formik.touched.start_time && formik.errors.start_time}
           />
-
           <DateField
-            label="End Time"
+            label="End Date & Time"
             name="end_time"
-            type="time"
+            type="datetime"
             required
             value={formik.values.end_time}
-            onChange={({ target }) => {
-              formik.setFieldValue("end_time", target.value);
-            }}
+            minDate={
+              formik.values.start_time
+                ? new Date(formik.values.start_time)
+                : undefined
+            }
+            onChange={({ target }) =>
+              formik.setFieldValue("end_time", target.value)
+            }
             onBlur={formik.handleBlur}
             error={formik.touched.end_time && formik.errors.end_time}
           />
-
-          {/* Duration — read only, auto calculated */}
           <div>
-            <Label>Duration</Label>
+            <Label>Duration (auto)</Label>
             <input
               type="text"
               readOnly
               value={duration ? `${duration} min` : ""}
-              placeholder="Duration Time"
+              placeholder="Auto calculated"
               className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm bg-gray-50 text-gray-600 cursor-not-allowed placeholder-gray-400 outline-none"
             />
           </div>
         </div>
 
-        {/* Actions */}
         <div className="flex justify-between mt-2">
           <Button
             variant="outline"
