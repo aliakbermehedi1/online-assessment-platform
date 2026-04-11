@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useExam } from "@/hooks/useExam";
 import { useAuth } from "@/hooks/useAuth";
@@ -8,6 +8,7 @@ import { useTimer } from "@/hooks/useTimer";
 import Navbar from "@/components/ui/Navbar";
 import Footer from "@/components/ui/Footer";
 import Modal from "@/components/ui/Modal";
+import Image from "next/image";
 
 export default function ExamPage() {
   const { id } = useParams();
@@ -20,6 +21,8 @@ export default function ExamPage() {
   const [showTimeout, setShowTimeout] = useState(false);
   const [exam, setExam] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [alreadySubmitted, setAlreadySubmitted] = useState(false);
+  const tabSwitchSubmittedRef = useRef(false);
 
   useEffect(() => {
     fetchQuestions(id);
@@ -33,19 +36,37 @@ export default function ExamPage() {
     }
   }, [exams, id]);
 
-  // Tab switch detection
+  // Check if already submitted
   useEffect(() => {
-    function handleVisibility() {
-      if (document.hidden) {
-        alert("Warning: Tab switching detected! Please stay on the exam page.");
+    async function checkSubmission() {
+      try {
+        const res = await fetch(`/api/submissions/check?exam_id=${id}`);
+        const data = await res.json();
+        if (data.submitted) {
+          setAlreadySubmitted(true);
+          router.replace("/candidate/exam/completed?already=true");
+        }
+      } catch {
+        // ignore
+      }
+    }
+    if (id) checkSubmission();
+  }, [id]);
+
+  // Tab switch → auto submit
+  useEffect(() => {
+    async function handleVisibility() {
+      if (document.hidden && !tabSwitchSubmittedRef.current && !submitting) {
+        tabSwitchSubmittedRef.current = true;
+        await handleSubmit(false, true);
       }
     }
     document.addEventListener("visibilitychange", handleVisibility);
     return () =>
       document.removeEventListener("visibilitychange", handleVisibility);
-  }, []);
+  }, [answers, submitting]);
 
-  // Fullscreen exit detection
+  // Fullscreen exit detection (warning only)
   useEffect(() => {
     function handleFullscreenChange() {
       if (!document.fullscreenElement) {
@@ -59,7 +80,7 @@ export default function ExamPage() {
 
   const handleTimeout = useCallback(async () => {
     setShowTimeout(true);
-    await submitExam(parseInt(id), answers, true);
+    await handleSubmit(true, false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [answers, id]);
 
@@ -81,7 +102,6 @@ export default function ExamPage() {
       }
       return { ...prev, [currentQuestion.id]: value };
     });
-    // Save to localStorage for offline support
     localStorage.setItem(
       "exam_answers",
       JSON.stringify({ ...answers, [currentQuestion.id]: value }),
@@ -92,21 +112,36 @@ export default function ExamPage() {
     if (currentIdx < questions.length - 1) {
       setCurrentIdx((prev) => prev + 1);
     } else {
-      await handleSubmit();
+      await handleSubmit(false, false);
     }
   }
 
-  async function handleSubmit(isTimeout = false) {
+  async function handleSubmit(isTimeout = false, isTabSwitch = false) {
+    if (submitting) return;
     setSubmitting(true);
     clearTimer();
     try {
       await submitExam(parseInt(id), answers, isTimeout);
       localStorage.removeItem("exam_answers");
       localStorage.removeItem("exam_timer_end");
-      router.push("/candidate/exam/completed");
+      if (!isTimeout) {
+        router.push("/candidate/exam/completed");
+      }
     } catch {
       setSubmitting(false);
     }
+  }
+
+  if (alreadySubmitted) {
+    return (
+      <div className="min-h-screen flex flex-col bg-[#f3f4f6]">
+        <Navbar title="Akij Resource" role="candidate" />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="w-8 h-8 border-4 border-[#6B3FE7] border-t-transparent rounded-full animate-spin" />
+        </div>
+        <Footer />
+      </div>
+    );
   }
 
   if (!currentQuestion) {
@@ -164,7 +199,7 @@ export default function ExamPage() {
             </div>
           ) : (
             <div className="flex flex-col gap-2 mb-4">
-              {currentQuestion.options?.map((opt, idx) => {
+              {currentQuestion.options?.map((opt) => {
                 const isSelected =
                   currentQuestion.question_type === "Checkbox"
                     ? (answers[currentQuestion.id] || []).includes(opt.id)
@@ -226,8 +261,14 @@ export default function ExamPage() {
 
       {/* Timeout Modal */}
       <Modal isOpen={showTimeout} onClose={() => {}}>
-        <div className="flex flex-col items-center text-center py-4">
-          <div className="text-5xl mb-3">⏰</div>
+        <div className="flex flex-col items-center text-center py-6 px-4">
+          <Image
+            src="/timeout.png"
+            alt="Timeout"
+            width={80}
+            height={80}
+            className="object-contain mb-4"
+          />
           <h2 className="text-xl font-bold text-gray-800 mb-2">Timeout!</h2>
           <p className="text-gray-500 text-sm mb-6">
             Dear {user?.name}, Your exam time has been finished. Thank you for
@@ -235,7 +276,7 @@ export default function ExamPage() {
           </p>
           <button
             onClick={() => router.push("/candidate/dashboard")}
-            className="border border-gray-200 px-6 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-50"
+            className="border border-gray-200 px-6 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer"
           >
             Back to Dashboard
           </button>

@@ -56,7 +56,7 @@ export default function CreateTestPage() {
             <div className="ml-auto">
               <a
                 href="/employer/dashboard"
-                className="text-sm border border-gray-200 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+                className="text-sm border border-gray-200 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
               >
                 Back to Dashboard
               </a>

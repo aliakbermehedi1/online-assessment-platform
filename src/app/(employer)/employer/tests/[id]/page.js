@@ -49,7 +49,7 @@ export default function ViewTestPage() {
             <div className="ml-auto">
               <button
                 onClick={() => router.push("/employer/dashboard")}
-                className="text-sm border border-gray-200 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+                className="text-sm border border-gray-200 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
               >
                 Back to Dashboard
               </button>

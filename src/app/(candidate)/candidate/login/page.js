@@ -8,6 +8,7 @@ import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import Footer from "@/components/ui/Footer";
 import Image from "next/image";
+import Link from "next/link";
 
 const validationSchema = Yup.object({
   email: Yup.string().email("Invalid email").required("Email is required"),
@@ -37,13 +38,15 @@ export default function CandidateLoginPage() {
       <div className="min-h-screen flex flex-col bg-[#f3f4f6]">
         {/* Header */}
         <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
-          <Image
-            src="/header-logo.png"
-            alt="Akij Resource"
-            width={120}
-            height={32}
-            className="object-contain"
-          />
+          <Link href="/">
+            <Image
+              src="/header-logo.png"
+              alt="Akij Resource"
+              width={120}
+              height={32}
+              className="object-contain cursor-pointer"
+            />
+          </Link>
           <span className="font-semibold text-gray-700 text-sm">
             Akij Resource
           </span>
