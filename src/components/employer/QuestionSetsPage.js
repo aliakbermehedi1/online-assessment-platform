@@ -4,11 +4,14 @@ import { useEffect, useState } from "react";
 import { useExam } from "@/hooks/useExam";
 import Button from "@/components/ui/Button";
 import QuestionModal from "./QuestionModal";
+import ConfirmModal from "@/components/ui/ConfirmModal";
 
 export default function QuestionSetsPage({ examId, basicInfo }) {
   const { questions, fetchQuestions, deleteQuestion } = useExam();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState(null);
+  const [deletingQuestion, setDeletingQuestion] = useState(null); // question object to delete
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   useEffect(() => {
     if (examId) fetchQuestions(examId);
@@ -24,9 +27,16 @@ export default function QuestionSetsPage({ examId, basicInfo }) {
     setModalOpen(true);
   }
 
-  async function handleDelete(id) {
-    if (confirm("Remove this question?")) {
-      await deleteQuestion(id);
+  async function handleDeleteConfirm() {
+    if (!deletingQuestion) return;
+    setDeleteLoading(true);
+    try {
+      await deleteQuestion(deletingQuestion.id);
+      setDeletingQuestion(null);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setDeleteLoading(false);
     }
   }
 
@@ -50,30 +60,37 @@ export default function QuestionSetsPage({ examId, basicInfo }) {
           </div>
           <p className="font-semibold text-gray-800 mb-3">{q.question_text}</p>
 
-          {q.options &&
-            q.options.map((opt, i) => (
-              <div
-                key={opt.id}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg mb-1.5 text-sm ${opt.is_correct ? "bg-gray-50 border border-gray-200" : "bg-gray-50"}`}
-              >
-                <span className="text-gray-500">
-                  {String.fromCharCode(65 + i)}.
+          {q.options?.map((opt, i) => (
+            <div
+              key={opt.id}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg mb-1.5 text-sm ${
+                opt.is_correct
+                  ? "bg-green-50 border border-green-200"
+                  : "bg-gray-50"
+              }`}
+            >
+              <span className="text-gray-500">
+                {String.fromCharCode(65 + i)}.
+              </span>
+              <span className="flex-1">{opt.option_text}</span>
+              {opt.is_correct && (
+                <span className="text-green-600 text-xs font-semibold">
+                  ✓ Correct
                 </span>
-                <span className="flex-1">{opt.option_text}</span>
-                {opt.is_correct && <span className="text-green-500">✅</span>}
-              </div>
-            ))}
+              )}
+            </div>
+          ))}
 
           <div className="flex items-center justify-between mt-3">
             <button
               onClick={() => handleEdit(q)}
-              className="text-[#6B3FE7] text-sm font-medium hover:underline"
+              className="text-[#6B3FE7] text-sm font-medium hover:underline cursor-pointer"
             >
               Edit
             </button>
             <button
-              onClick={() => handleDelete(q.id)}
-              className="text-red-500 text-sm font-medium hover:underline"
+              onClick={() => setDeletingQuestion(q)}
+              className="text-red-500 text-sm font-medium hover:underline cursor-pointer"
             >
               Remove From Exam
             </button>
@@ -83,7 +100,7 @@ export default function QuestionSetsPage({ examId, basicInfo }) {
 
       <button
         onClick={handleAdd}
-        className="w-full bg-[#6B3FE7] hover:bg-[#5a33c4] text-white py-4 rounded-xl font-semibold text-sm transition-colors"
+        className="w-full bg-[#6B3FE7] hover:bg-[#5a33c4] text-white py-4 rounded-xl font-semibold text-sm transition-colors cursor-pointer"
       >
         Add Question
       </button>
@@ -97,6 +114,18 @@ export default function QuestionSetsPage({ examId, basicInfo }) {
         examId={examId}
         questionType={basicInfo?.question_type || "MCQ"}
         editingQuestion={editingQuestion}
+      />
+
+      <ConfirmModal
+        isOpen={!!deletingQuestion}
+        onClose={() => setDeletingQuestion(null)}
+        onConfirm={handleDeleteConfirm}
+        loading={deleteLoading}
+        title="Remove Question?"
+        description={`Are you sure you want to remove this question? This action cannot be undone.`}
+        confirmText="Yes, Remove"
+        cancelText="Cancel"
+        variant="danger"
       />
     </div>
   );

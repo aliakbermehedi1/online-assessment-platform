@@ -27,7 +27,7 @@ export default function LoginSelectorPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full max-w-xl">
           <button
             onClick={() => router.push("/employer/login")}
-            className="bg-white border-2 border-gray-100 hover:border-[#6B3FE7] rounded-2xl p-8 flex flex-col items-center gap-4 transition-all hover:shadow-lg group"
+            className="bg-white border-2 border-gray-100 hover:border-[#6B3FE7] rounded-2xl p-8 flex flex-col items-center gap-4 transition-all hover:shadow-lg group cursor-pointer"
           >
             <div className="w-16 h-16 bg-purple-50 group-hover:bg-purple-100 rounded-full flex items-center justify-center text-3xl transition-colors">
               🏢
@@ -42,7 +42,7 @@ export default function LoginSelectorPage() {
 
           <button
             onClick={() => router.push("/candidate/login")}
-            className="bg-white border-2 border-gray-100 hover:border-[#6B3FE7] rounded-2xl p-8 flex flex-col items-center gap-4 transition-all hover:shadow-lg group"
+            className="bg-white border-2 border-gray-100 hover:border-[#6B3FE7] rounded-2xl p-8 flex flex-col items-center gap-4 transition-all hover:shadow-lg group cursor-pointer"
           >
             <div className="w-16 h-16 bg-purple-50 group-hover:bg-purple-100 rounded-full flex items-center justify-center text-3xl transition-colors">
               👤
