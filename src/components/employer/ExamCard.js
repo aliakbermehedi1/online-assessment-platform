@@ -95,7 +95,7 @@ export default function EmployerExamCard({ exam, onDelete }) {
           {/* Delete icon — bottom right, on hover */}
           <button
             onClick={() => setShowDeleteModal(true)}
-            className={`w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-400 hover:text-red-500 hover:border-red-400 hover:bg-red-50 transition-all duration-200 ${
+            className={`absolute bottom-3 right-3 w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-400 hover:text-red-500 hover:border-red-400 hover:bg-red-50 transition-all duration-200 ${
               hovered
                 ? "opacity-100 scale-100"
                 : "opacity-0 scale-90 pointer-events-none"
