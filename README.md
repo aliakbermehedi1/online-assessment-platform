@@ -5,7 +5,7 @@ A full-stack Online Assessment Platform built as part of the iBOS Limited Fronte
 ## Live Links
 Live Demo: https://online-assessment-ibos.vercel.app/
 GitHub: https://github.com/aliakbermehedi1/online-assessment-platform
-Video Recording: 
+Video Recording: https://youtu.be/fTsg3my3FfI?si=W6sDTgeb025Tmsfo
 
 
 ## Tech Stack
